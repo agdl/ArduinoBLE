@@ -48,14 +48,14 @@ int BLELocalDevice::begin()
 #ifndef COEXISTENCE
   digitalWrite(NINA_RESETN, HIGH);
   delay(100);
+#endif
   digitalWrite(NINA_RESETN, LOW);
   delay(750);
-#endif
 #elif defined(ARDUINO_SAMD_NANO_33_IOT)
   // inverted reset
-#ifndef COEXISTENCE
   digitalWrite(NINA_RESETN, LOW);
   delay(100);
+#ifndef COEXISTENCE
   digitalWrite(NINA_RESETN, HIGH);
   delay(750);
 #endif
