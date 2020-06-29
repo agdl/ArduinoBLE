@@ -189,7 +189,7 @@ bool ATTClass::discoverAttributes(uint8_t peerBdaddrType, uint8_t peerBdaddr[6],
     device->clearServices();
   } else {
     int serviceCount = device->serviceCount();
-  
+
     for (int i = 0; i < serviceCount; i++) {
       BLERemoteService* service = device->service(i);
 
@@ -585,7 +585,7 @@ void ATTClass::error(uint16_t connectionHandle, uint8_t dlen, uint8_t data[])
   if (dlen != 4) {
     // drop
     return;
-  } 
+  }
 
   struct __attribute__ ((packed)) AttError {
     uint8_t opcode;
@@ -981,7 +981,7 @@ void ATTClass::readOrReadBlobReq(uint16_t connectionHandle, uint16_t mtu, uint8_
     }
   } else if (attributeType == BLETypeDescriptor) {
     BLELocalDescriptor* descriptor = (BLELocalDescriptor*)attribute;
-    
+
     uint16_t valueLength = descriptor->valueSize();
 
     if (offset >= valueLength) {
@@ -994,7 +994,7 @@ void ATTClass::readOrReadBlobReq(uint16_t connectionHandle, uint16_t mtu, uint8_
     memcpy(&response[responseLength], descriptor->value() + offset, valueLength);
     responseLength += valueLength;
   }
-  
+
   HCI.sendAclPkt(connectionHandle, ATT_CID, responseLength, response);
 }
 
@@ -1167,9 +1167,9 @@ void ATTClass::writeReqOrCmd(uint16_t connectionHandle, uint16_t mtu, uint8_t op
 
   if (attribute->type() == BLETypeCharacteristic) {
     BLELocalCharacteristic* characteristic = (BLELocalCharacteristic*)attribute;
-    
-    if (handle != characteristic->valueHandle() || 
-      withResponse ? ((characteristic->properties() & BLEWrite) == 0) : 
+
+    if (handle != characteristic->valueHandle() ||
+      withResponse ? ((characteristic->properties() & BLEWrite) == 0) :
                      ((characteristic->properties() & BLEWriteWithoutResponse) == 0)) {
       if (withResponse) {
         sendError(connectionHandle, ATT_OP_WRITE_REQ, handle, ATT_ECODE_WRITE_NOT_PERM);
@@ -1457,14 +1457,14 @@ bool ATTClass::discoverServices(uint16_t connectionHandle, BLERemoteDevice* devi
           uint8_t uuid[16];
         } *rawService = (RawService*)&responseBuffer[i];
 
-        if (serviceUuidFilter == NULL || 
+        if (serviceUuidFilter == NULL ||
             (uuidLen == serviceUuid.length() && memcmp(rawService->uuid, serviceUuid.data(), uuidLen) == 0)) {
-        
+
           BLERemoteService* service = new BLERemoteService(rawService->uuid, uuidLen,
                                                             rawService->startHandle,
                                                             rawService->endHandle);
 
-          if (service == NULL) {
+          if (!service) {
             return false;
           }
 
@@ -1494,48 +1494,42 @@ bool ATTClass::discoverCharacteristics(uint16_t connectionHandle, BLERemoteDevic
   uint8_t responseBuffer[_maxMtu];
 
   int serviceCount = device->serviceCount();
-  
+
   for (int i = 0; i < serviceCount; i++) {
     BLERemoteService* service = device->service(i);
 
     reqStartHandle = service->startHandle();
     reqEndHandle = service->endHandle();
 
-    while (1) {
-      int respLength = readByTypeReq(connectionHandle, reqStartHandle, reqEndHandle, BLETypeCharacteristic, responseBuffer);
+    int respLength = readByTypeReq(connectionHandle, reqStartHandle, reqEndHandle, BLETypeCharacteristic, responseBuffer);
 
-      if (respLength == 0) {
-        return false;
-      }
+    if (respLength == 0) {
+      return false;
+    }
 
-      if (responseBuffer[0] == ATT_OP_READ_BY_TYPE_RESP) {
-        uint16_t lengthPerCharacteristic = responseBuffer[1];
-        uint8_t uuidLen = lengthPerCharacteristic - 5;
+    if (responseBuffer[0] == ATT_OP_READ_BY_TYPE_RESP) {
+      uint16_t lengthPerCharacteristic = responseBuffer[1];
+      uint8_t uuidLen = lengthPerCharacteristic - 5;
 
-        for (int i = 2; i < respLength; i += lengthPerCharacteristic) {
-          struct __attribute__ ((packed)) RawCharacteristic {
-            uint16_t startHandle;
-            uint8_t properties;
-            uint16_t valueHandle;
-            uint8_t uuid[16];
-          } *rawCharacteristic = (RawCharacteristic*)&responseBuffer[i];
+      for (int i = 2; i < respLength; i += lengthPerCharacteristic) {
+        struct __attribute__ ((packed)) RawCharacteristic {
+          uint16_t startHandle;
+          uint8_t properties;
+          uint16_t valueHandle;
+          uint8_t uuid[16];
+        } *rawCharacteristic = (RawCharacteristic*)&responseBuffer[i];
 
-          BLERemoteCharacteristic* characteristic = new BLERemoteCharacteristic(rawCharacteristic->uuid, uuidLen,
-                                                                                connectionHandle,
-                                                                                rawCharacteristic->startHandle,
-                                                                                rawCharacteristic->properties,
-                                                                                rawCharacteristic->valueHandle);
+        BLERemoteCharacteristic* characteristic = new BLERemoteCharacteristic(rawCharacteristic->uuid, uuidLen,
+                                                                              connectionHandle,
+                                                                              rawCharacteristic->startHandle,
+                                                                              rawCharacteristic->properties,
+                                                                              rawCharacteristic->valueHandle);
 
-          if (characteristic == NULL) {
-            return false;
-          }
-
-          service->addCharacteristic(characteristic);
-
-          reqStartHandle = rawCharacteristic->valueHandle + 1;
+        if (!characteristic) {
+          return false;
         }
-      } else {
-        break;
+
+        service->addCharacteristic(characteristic);
       }
     }
   }
@@ -1550,7 +1544,7 @@ bool ATTClass::discoverDescriptors(uint16_t connectionHandle, BLERemoteDevice* d
 
   uint8_t responseBuffer[_maxMtu];
 
-  int serviceCount = device->serviceCount();  
+  int serviceCount = device->serviceCount();
 
   for (int i = 0; i < serviceCount; i++) {
     BLERemoteService* service = device->service(i);
@@ -1570,38 +1564,33 @@ bool ATTClass::discoverDescriptors(uint16_t connectionHandle, BLERemoteDevice* d
         continue;
       }
 
-      while (1) {
-        int respLength = findInfoReq(connectionHandle, reqStartHandle, reqEndHandle, responseBuffer);
+      int respLength = findInfoReq(connectionHandle, reqStartHandle, reqEndHandle, responseBuffer);
 
-        if (respLength == 0) {
-          return false;
-        }
+      if (respLength == 0) {
+        return false;
+      }
 
-        if (responseBuffer[0] == ATT_OP_FIND_INFO_RESP) {
-          uint16_t lengthPerDescriptor = responseBuffer[1] * 4;
-          uint8_t uuidLen = 2;
+      if (responseBuffer[0] == ATT_OP_FIND_INFO_RESP) {
+        uint16_t lengthPerDescriptor = responseBuffer[1] * 4;
+        uint8_t uuidLen = 2;
 
-          for (int i = 2; i < respLength; i += lengthPerDescriptor) {
-            struct __attribute__ ((packed)) RawDescriptor {
-              uint16_t handle;
-              uint8_t uuid[16];
-            } *rawDescriptor = (RawDescriptor*)&responseBuffer[i];
+        for (int i = 2; i < respLength; i += lengthPerDescriptor) {
+          struct __attribute__ ((packed)) RawDescriptor {
+            uint16_t handle;
+            uint8_t uuid[16];
+          } *rawDescriptor = (RawDescriptor*)&responseBuffer[i];
 
-            BLERemoteDescriptor* descriptor = new BLERemoteDescriptor(rawDescriptor->uuid, uuidLen,
-                                                                      connectionHandle,
-                                                                      rawDescriptor->handle);
+          BLERemoteDescriptor* descriptor = new BLERemoteDescriptor(rawDescriptor->uuid, uuidLen,
+                                                                    connectionHandle,
+                                                                    rawDescriptor->handle);
 
-            if (descriptor == NULL) {
-              return false;
-            }
-
-            characteristic->addDescriptor(descriptor);
-
-            reqStartHandle = rawDescriptor->handle + 1;
+          if (!descriptor) {
+            return false;
           }
-        } else {
-          break;
+
+          characteristic->addDescriptor(descriptor);
         }
+
       }
     }
   }
@@ -1621,7 +1610,7 @@ int ATTClass::sendReq(uint16_t connectionHandle, void* requestBuffer, int reques
   if (responseBuffer == NULL) {
     // not waiting response
     return 0;
-  } 
+  }
 
   for (unsigned long start = millis(); (millis() - start) < _timeout;) {
     HCI.poll();
