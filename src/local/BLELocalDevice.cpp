@@ -46,19 +46,23 @@ int BLELocalDevice::begin()
   // reset the NINA in BLE mode
   pinMode(SPIWIFI_SS, OUTPUT);
   pinMode(NINA_RESETN, OUTPUT);
-  
+#ifndef COEXISTENCE
   digitalWrite(SPIWIFI_SS, LOW);
+#endif
 #endif
 
 #if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_AVR_UNO_WIFI_REV2)
+#ifndef COEXISTENCE
   digitalWrite(NINA_RESETN, HIGH);
   delay(100);
+#endif
   digitalWrite(NINA_RESETN, LOW);
   delay(750);
 #elif defined(ARDUINO_SAMD_NANO_33_IOT)
   // inverted reset
   digitalWrite(NINA_RESETN, LOW);
   delay(100);
+#ifndef COEXISTENCE
   digitalWrite(NINA_RESETN, HIGH);
   delay(750);
 #elif defined(ARDUINO_PORTENTA_H7_M4) || defined(ARDUINO_PORTENTA_H7_M7)
@@ -66,9 +70,10 @@ int BLELocalDevice::begin()
   pinMode(BT_REG_ON, OUTPUT);
   digitalWrite(BT_REG_ON, HIGH);
 #endif
+#endif
 
 
-#ifdef ARDUINO_AVR_UNO_WIFI_REV2
+#if defined(ARDUINO_AVR_UNO_WIFI_REV2)
   // set SS HIGH
   digitalWrite(SPIWIFI_SS, HIGH);
 
