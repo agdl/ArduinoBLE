@@ -25,8 +25,15 @@
 
 #include "BLELocalDevice.h"
 
+#if defined(ARDUINO_PORTENTA_H7_M4) || defined(ARDUINO_PORTENTA_H7_M7)
+#ifndef BT_REG_ON
+#define BT_REG_ON PJ_12
+#endif
+#endif
+
 BLELocalDevice::BLELocalDevice()
 {
+  _advertisingData.setFlags(BLEFlagsGeneralDiscoverable | BLEFlagsBREDRNotSupported);
 }
 
 BLELocalDevice::~BLELocalDevice()
@@ -39,6 +46,7 @@ int BLELocalDevice::begin()
   // reset the NINA in BLE mode
   pinMode(SPIWIFI_SS, OUTPUT);
   pinMode(NINA_RESETN, OUTPUT);
+
 #ifndef COEXISTENCE
   digitalWrite(SPIWIFI_SS, LOW);
 #endif
@@ -52,19 +60,25 @@ int BLELocalDevice::begin()
   digitalWrite(NINA_RESETN, LOW);
   delay(750);
 #elif defined(ARDUINO_SAMD_NANO_33_IOT)
+#ifndef COEXISTENCE
   // inverted reset
   digitalWrite(NINA_RESETN, LOW);
   delay(100);
-#ifndef COEXISTENCE
+#endif
   digitalWrite(NINA_RESETN, HIGH);
   delay(750);
-#endif
+#elif defined(ARDUINO_PORTENTA_H7_M4) || defined(ARDUINO_PORTENTA_H7_M7)
+  // BT_REG_ON -> HIGH
+  pinMode(BT_REG_ON, OUTPUT);
+  digitalWrite(BT_REG_ON, HIGH);
 #endif
 
 
-#if defined(ARDUINO_AVR_UNO_WIFI_REV2)
+#if defined(ARDUINO_AVR_UNO_WIFI_REV2)  || defined(COEXISTENCE)
+#ifndef COEXISTENCE
   // set SS HIGH
   digitalWrite(SPIWIFI_SS, HIGH);
+#endif
 
   // set RTS HIGH
   pinMode(NINA_RTS, OUTPUT);
@@ -128,6 +142,9 @@ void BLELocalDevice::end()
 #elif defined(ARDUINO_SAMD_NANO_33_IOT)
   // disable the NINA
   digitalWrite(NINA_RESETN, LOW);
+#elif defined(ARDUINO_PORTENTA_H7_M4) || defined(ARDUINO_PORTENTA_H7_M7)
+  // BT_REG_ON -> LOW
+  digitalWrite(BT_REG_ON, LOW);
 #endif
 }
 
@@ -175,29 +192,57 @@ int BLELocalDevice::rssi()
   return 127;
 }
 
-void BLELocalDevice::setAdvertisedServiceUuid(const char* advertisedServiceUuid)
+bool BLELocalDevice::setAdvertisedServiceUuid(const char* advertisedServiceUuid)
 {
-  GAP.setAdvertisedServiceUuid(advertisedServiceUuid);
+  return _advertisingData.setAdvertisedServiceUuid(advertisedServiceUuid);
 }
 
-void BLELocalDevice::setAdvertisedService(const BLEService& service)
+bool BLELocalDevice::setAdvertisedService(const BLEService& service)
 {
-  setAdvertisedServiceUuid(service.uuid());
+  return setAdvertisedServiceUuid(service.uuid());
 }
 
-void BLELocalDevice::setManufacturerData(const uint8_t manufacturerData[], int manufacturerDataLength)
+bool BLELocalDevice::setAdvertisedServiceData(uint16_t uuid, const uint8_t data[], int length)
 {
-  GAP.setManufacturerData(manufacturerData, manufacturerDataLength);
+  return _advertisingData.setAdvertisedServiceData(uuid, data, length);
 }
 
-void BLELocalDevice::setManufacturerData(const uint16_t companyId, const uint8_t manufacturerData[], int manufacturerDataLength)
+bool BLELocalDevice::setManufacturerData(const uint8_t manufacturerData[], int manufacturerDataLength)
 {
-  GAP.setManufacturerData(companyId, manufacturerData, manufacturerDataLength);
+  return _advertisingData.setManufacturerData(manufacturerData, manufacturerDataLength);
 }
 
-void BLELocalDevice::setLocalName(const char *localName)
+bool BLELocalDevice::setManufacturerData(const uint16_t companyId, const uint8_t manufacturerData[], int manufacturerDataLength)
 {
-  GAP.setLocalName(localName);
+  return _advertisingData.setManufacturerData(companyId, manufacturerData, manufacturerDataLength);
+}
+
+bool BLELocalDevice::setLocalName(const char *localName)
+{
+  return _scanResponseData.setLocalName(localName);  
+}
+
+void BLELocalDevice::setAdvertisingData(BLEAdvertisingData& advertisingData)
+{
+  _advertisingData = advertisingData;
+  if (!_advertisingData.hasFlags()) {
+    _advertisingData.setFlags(BLEFlagsGeneralDiscoverable | BLEFlagsBREDRNotSupported);
+  }
+}
+
+void BLELocalDevice::setScanResponseData(BLEAdvertisingData& scanResponseData)
+{
+  _scanResponseData = scanResponseData;
+}
+
+BLEAdvertisingData& BLELocalDevice::getAdvertisingData()
+{
+  return _advertisingData;
+}
+
+BLEAdvertisingData& BLELocalDevice::getScanResponseData()
+{
+  return _scanResponseData;
 }
 
 void BLELocalDevice::setDeviceName(const char* deviceName)
@@ -217,7 +262,10 @@ void BLELocalDevice::addService(BLEService& service)
 
 int BLELocalDevice::advertise()
 {
-  return GAP.advertise();
+  _advertisingData.updateData();
+  _scanResponseData.updateData();
+  return GAP.advertise( _advertisingData.data(), _advertisingData.dataLength(), 
+                        _scanResponseData.data(), _scanResponseData.dataLength());
 }
 
 void BLELocalDevice::stopAdvertise()
@@ -283,6 +331,11 @@ void BLELocalDevice::setConnectionInterval(uint16_t minimumConnectionInterval, u
   L2CAPSignaling.setConnectionInterval(minimumConnectionInterval, maximumConnectionInterval);
 }
 
+void BLELocalDevice::setSupervisionTimeout(uint16_t supervisionTimeout)
+{
+  L2CAPSignaling.setSupervisionTimeout(supervisionTimeout);
+}
+
 void BLELocalDevice::setConnectable(bool connectable)
 {
   GAP.setConnectable(connectable);
@@ -303,4 +356,7 @@ void BLELocalDevice::noDebug()
   HCI.noDebug();
 }
 
-BLELocalDevice BLE;
+#if !defined(FAKE_BLELOCALDEVICE)
+BLELocalDevice BLEObj;
+BLELocalDevice& BLE = BLEObj;
+#endif
