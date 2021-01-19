@@ -21,12 +21,13 @@
 
 #include "HCIUartTransport.h"
 
-#if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_AVR_UNO_WIFI_REV2)
+ #if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_AVR_UNO_WIFI_REV2)
 #ifndef COEXISTENCE
-#define SerialHCI Serial2
+ #define SerialHCI Serial2
 #else
 #define SerialHCI Serial1
 #endif
+
 #elif defined(ARDUINO_SAMD_NANO_33_IOT)
 // SerialHCI is already defined in the variant
 #else
@@ -81,7 +82,7 @@ int HCIUartTransportClass::read()
 
 size_t HCIUartTransportClass::write(const uint8_t* data, size_t length)
 {
-#ifdef ARDUINO_AVR_UNO_WIFI_REV2
+ #if defined(ARDUINO_AVR_UNO_WIFI_REV2 ) || defined(COEXISTENCE)
   // wait while the CTS pin is low
   while (digitalRead(NINA_CTS) == HIGH);
 #endif

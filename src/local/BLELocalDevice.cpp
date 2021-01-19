@@ -39,6 +39,7 @@ int BLELocalDevice::begin()
   // reset the NINA in BLE mode
   pinMode(SPIWIFI_SS, OUTPUT);
   pinMode(NINA_RESETN, OUTPUT);
+
 #ifndef COEXISTENCE
   digitalWrite(SPIWIFI_SS, LOW);
 #endif
@@ -52,19 +53,21 @@ int BLELocalDevice::begin()
   digitalWrite(NINA_RESETN, LOW);
   delay(750);
 #elif defined(ARDUINO_SAMD_NANO_33_IOT)
+#ifndef COEXISTENCE
   // inverted reset
   digitalWrite(NINA_RESETN, LOW);
   delay(100);
-#ifndef COEXISTENCE
+#endif
   digitalWrite(NINA_RESETN, HIGH);
   delay(750);
 #endif
-#endif
 
 
-#if defined(ARDUINO_AVR_UNO_WIFI_REV2)
+#if defined(ARDUINO_AVR_UNO_WIFI_REV2)  || defined(COEXISTENCE)
+#ifndef COEXISTENCE
   // set SS HIGH
   digitalWrite(SPIWIFI_SS, HIGH);
+#endif
 
   // set RTS HIGH
   pinMode(NINA_RTS, OUTPUT);
